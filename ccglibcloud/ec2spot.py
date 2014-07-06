@@ -81,8 +81,6 @@ class EC2SpotNodeDriver(EC2NodeDriver):
     }
 
     def create_node(self, **kwargs):
-        print "here"
-
         """
         Create a new EC2 node.
 
