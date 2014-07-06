@@ -1,0 +1,12 @@
+syntax: glob
+
+ccg_libcloud_drivers.egg-info/
+virt/
+
+.*swp
+*.log
+*.pyc
+*.egg
+*.rpm
+
+*.sublime-workspace
