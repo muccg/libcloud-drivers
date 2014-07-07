@@ -17,7 +17,7 @@ To install as a developer::
     source virt/bin/activate
     pip install -e .
 
-To load the driver::
+To load the driver from your Python code::
 
     from libcloud.compute.providers import get_driver
     from libcloud.compute.providers import set_driver
@@ -27,6 +27,10 @@ To load the driver::
                'EC2APSESydneySpotNodeDriver')
     cls = get_driver('ec2spot')
     driver = cls(ACCESS_ID, SECRET_KEY)
+
+Run the example, its CCG specific and loads AWS creds from your environment::
+
+    python example.py
 
 .. _libcloud: https://libcloud.apache.org/
 .. _spot: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/ApiReference-query-RequestSpotInstances.html
