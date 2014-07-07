@@ -101,15 +101,6 @@ class EC2SpotNodeDriver(EC2NodeDriver):
                                         assign to the node.
         :type       ex_security_groups:   ``list``
 
-        :keyword    ex_metadata: Key/Value metadata to associate with a node
-        :type       ex_metadata: ``dict``
-
-        :keyword    ex_mincount: Minimum number of instances to launch
-        :type       ex_mincount: ``int``
-
-        :keyword    ex_maxcount: Maximum number of instances to launch
-        :type       ex_maxcount: ``int``
-
         :keyword    ex_blockdevicemappings: ``list`` of ``dict`` block device
                     mappings.
         :type       ex_blockdevicemappings: ``list`` of ``dict``
