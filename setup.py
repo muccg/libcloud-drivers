@@ -12,6 +12,6 @@ setup(
     packages=['ccglibcloud'],
 
     install_requires=[
-        "apache-libcloud>=0.14.0",
+        "apache-libcloud==0.15.1",
     ],
 )
