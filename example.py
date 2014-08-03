@@ -30,10 +30,11 @@ def create_spot_request(accessid, secretkey):
     image = NodeImage(id=AMI_ID, name=None, driver=driver)
 
     # create the spot instance
-    spot = driver.create_node(name=NODE_NAME, image=image, size=size,
-                              ex_spot_price=SPOT_PRICE,
-                              ex_keyname=KEYPAIR_NAME,
-                              ex_securitygroup=SECURITY_GROUP_NAMES)
+    spot = driver.ex_request_spot_instances(image=image,
+                              size=size,
+                              spot_price=SPOT_PRICE,
+                              keyname=KEYPAIR_NAME,
+                              security_groups=SECURITY_GROUP_NAMES)
 
     # wait for the spot request to be fullfilled
     while spot.state == SpotRequestState.OPEN:

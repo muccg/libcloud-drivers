@@ -65,9 +65,8 @@ class EC2SpotRequest(object):
 
 class EC2SpotNodeDriver(EC2NodeDriver):
     """
-    Amazon EC2 spot node driver.
-
-    Used for EC2 spot instances.
+    Amazon EC2 driver with added support for spot instances.
+    Ideally, these extra methods should make it into the main EC2NodeDrivers one day.
 
     http://docs.aws.amazon.com/AWSEC2/latest/APIReference/ApiReference-query-RequestSpotInstances.html
     """
@@ -80,61 +79,98 @@ class EC2SpotNodeDriver(EC2NodeDriver):
         'active': SpotRequestState.ACTIVE
     }
 
-    def create_node(self, **kwargs):
+    def ex_request_spot_instances(self, **kwargs):
         """
-        Create a new EC2 node.
+        Create a Spot Instance Request.
 
         Reference: http://bit.ly/8ZyPSy [docs.amazonwebservices.com]
 
-        @inherits: :class:`NodeDriver.create_node`
+        :keyword    spot_price: The spot price to bid. (required)
+        :type       spot_price: ``str``
+ 
+        :keyword    instance_count: The maximum number of Spot Instances to launch.
+        :type       instance_count: ``int``
 
-        :keyword    ex_spot_price: The spot price to bid
-        :type       ex_spot_price: ``str``
+        :keyword    type: The Spot instance request type ("one-time" | "persistent").
+        :type       type: ``str``
 
-        :keyword    ex_keyname: The name of the key pair
-        :type       ex_keyname: ``str``
+        :keyword    valid_from: The start date of the request.
+        :type       valid_from: ``datetime.datetime`` 
 
-        :keyword    ex_userdata: User data
-        :type       ex_userdata: ``str``
+        :keyword    valid_until: The end date of the request.
+        :type       valid_until: ``datetime.datetime`` 
 
-        :keyword    ex_security_groups: A list of names of security groups to
+        :keyword    image: OS Image to boot on node. (required)
+        :type       image: :class:`.NodeImage`
+
+        :keyword    size: The size of resources allocated to this node. (required)
+        :type       :class: `.NodeSize`
+
+        :keyword    location: Which data center to create all your Spot instances in.
+        :type       location: :class:`.NodeLocation`
+
+        :keyword    keyname: The name of the key pair
+        :type       keyname: ``str``
+
+        :keyword    userdata: User data
+        :type       userdata: ``str``
+
+        :keyword    security_groups: A list of names of security groups to
                                         assign to the node.
-        :type       ex_security_groups:   ``list``
+        :type       security_groups:   ``list``
 
-        :keyword    ex_blockdevicemappings: ``list`` of ``dict`` block device
+        :keyword    blockdevicemappings: ``list`` of ``dict`` block device
                     mappings.
-        :type       ex_blockdevicemappings: ``list`` of ``dict``
+        :type       blockdevicemappings: ``list`` of ``dict``
 
-        :keyword    ex_iamprofile: Name or ARN of IAM profile
-        :type       ex_iamprofile: ``str``
+        :keyword    iamprofile: Name or ARN of IAM profile
+        :type       iamprofile: ``str``
 
-        :keyword    ex_ebs_optimized: EBS-Optimized if True
-        :type       ex_ebs_optimized: ``bool``
+        :keyword    ebs_optimized: EBS-Optimized if True
+        :type       ebs_optimized: ``bool``
 
-        :keyword    ex_subnet: The subnet to launch the instance into.
-        :type       ex_subnet: :class:`.EC2Subnet`
+        :keyword    subnet: The subnet to launch the instance into.
+        :type       subnet: :class:`.EC2Subnet`
         """
+        spot_price = kwargs["spot_price"]
         image = kwargs["image"]
         size = kwargs["size"]
         params = {
             'Action': 'RequestSpotInstances',
-            'SpotPrice': str(kwargs.get('ex_spot_price')),
-            'InstanceCount': str(kwargs.get('ex_instance_count', '1')),
+            'SpotPrice': str(spot_price),
             'LaunchSpecification.ImageId': image.id,
             'LaunchSpecification.InstanceType': size.id
         }
 
-        print 'SpotPrice {0}'.format(params['SpotPrice'])
+        if "instance_count" in kwargs:
+            params["InstanceCount"] = str(kwargs["instance_count"])
 
-        if 'ex_security_groups' in kwargs and 'ex_securitygroup' in kwargs:
-            raise ValueError('You can only supply ex_security_groups or'
-                             ' ex_securitygroup')
+        if "type" in kwargs:
+            params["Type"] = kwargs["type"]
 
-        # ex_securitygroup is here for backward compatibility
-        ex_security_groups = kwargs.get('ex_security_groups', None)
-        ex_securitygroup = kwargs.get('ex_securitygroup', None)
-        security_groups = ex_security_groups or ex_securitygroup
+        if "valid_from" in kwargs:
+            params["ValidFrom"] = kwargs["valid_from"].isoformat()
 
+        if "valid_until" in kwargs:
+            params["ValidUntil"] = kwargs["valid_until"].isoformat()
+
+        if "location" in kwargs:
+            availability_zone = getattr(kwargs["location"],
+                                        "availability_zone", None)
+            if availability_zone:
+                if availability_zone.region_name != self.region_name:
+                    raise AttributeError('Invalid availability zone: %s'
+                                         % (availability_zone.name))
+                params['LaunchSpecification.Placement.AvailabilityZone'] = availability_zone.name
+
+        if 'keyname' in kwargs:
+            params['LaunchSpecification.KeyName'] = kwargs['keyname']
+
+        if 'userdata' in kwargs:
+            userdata = base64.b64encode(b(kwargs['userdata'])).decode('utf-8')
+            params['LaunchSpecification.UserData'] = userdata
+ 
+        security_groups = kwargs.get('security_groups')
         if security_groups:
             if not isinstance(security_groups, (tuple, list)):
                 security_groups = [security_groups]
@@ -143,49 +179,27 @@ class EC2SpotNodeDriver(EC2NodeDriver):
                 params['LaunchSpecification.SecurityGroup.%d' % (sig + 1,)] =\
                     security_groups[sig]
 
-        if 'location' in kwargs:
-            availability_zone = getattr(kwargs['location'],
-                                        'availability_zone', None)
-            if availability_zone:
-                if availability_zone.region_name != self.region_name:
-                    raise AttributeError('Invalid availability zone: %s'
-                                         % (availability_zone.name))
-                params['LaunchSpecification.Placement.AvailabilityZone'] = availability_zone.name
-
-        if 'auth' in kwargs and 'ex_keyname' in kwargs:
-            raise AttributeError('Cannot specify auth and ex_keyname together')
-
-        if 'auth' in kwargs:
-            auth = self._get_and_check_auth(kwargs['auth'])
-            key = self.ex_find_or_import_keypair_by_key_material(auth.pubkey)
-            params['LaunchSpecification.KeyName'] = key['keyName']
-
-        if 'ex_keyname' in kwargs:
-            params['LaunchSpecification.KeyName'] = kwargs['ex_keyname']
-
-        if 'ex_userdata' in kwargs:
-            params['LaunchSpecification.UserData'] = base64.b64encode(b(kwargs['ex_userdata']))\
-                .decode('utf-8')
-
-        if 'ex_blockdevicemappings' in kwargs:
+        if 'blockdevicemappings' in kwargs:
             params.update(self._get_block_device_mapping_params(
-                          kwargs['ex_blockdevicemappings']))
+                          kwargs['blockdevicemappings']))
 
-        if 'ex_iamprofile' in kwargs:
-            if not isinstance(kwargs['ex_iamprofile'], basestring):
-                raise AttributeError('ex_iamprofile not string')
+        iamprofile = kwargs.get('iamprofile')
+        if iamprofile:
+            if not isinstance(iamprofile, basestring):
+                raise AttributeError('iamprofile not string')
 
-            if kwargs['ex_iamprofile'].startswith('arn:aws:iam:'):
-                params['LaunchSpecification.IamInstanceProfile.Arn'] = kwargs['ex_iamprofile']
+            if iamprofile.startswith('arn:aws:iam:'):
+                params['LaunchSpecification.IamInstanceProfile.Arn'] = iamprofile
             else:
-                params['LaunchSpecification.IamInstanceProfile.Name'] = kwargs['ex_iamprofile']
+                params['LaunchSpecification.IamInstanceProfile.Name'] = iamprofile
 
-        if 'ex_ebs_optimized' in kwargs:
-            params['LaunchSpecification.EbsOptimized'] = kwargs['ex_ebs_optimized']
+        if 'ebs_optimized' in kwargs:
+            params['LaunchSpecification.EbsOptimized'] = kwargs['ebs_optimized']
 
-        if 'ex_subnet' in kwargs:
-            params['LaunchSpecification.SubnetId'] = kwargs['ex_subnet'].id
+        if 'subnet' in kwargs:
+            params['LaunchSpecification.SubnetId'] = kwargs['subnet'].id
 
+        print "Params is %s" % params
         object = self.connection.request(self.path, params=params).object
         spots = self._to_spot_requests(object, 'spotInstanceRequestSet/item')
 
