@@ -21,6 +21,37 @@ import base64
 from libcloud.utils.py3 import b, basestring
 from libcloud.utils.xml import fixxpath, findtext, findall
 from libcloud.compute.drivers.ec2 import EC2NodeDriver, NAMESPACE, RESOURCE_EXTRA_ATTRIBUTES_MAP
+from libcloud.compute.providers import set_driver
+
+
+REGION_TO_DRIVER = {
+    'eu-east-1': 'EC2SpotNodeDriver',
+    'eu-west-1': 'EC2EUSpotNodeDriver',
+    'us-west-1': 'EC2USWestSpotNodeDriver',
+    'us-west-2': 'EC2USWestOregonSpotNodeDriver',
+    'ap-southeast-1': 'EC2APSESpotNodeDriver',
+    'ap-northeast-1': 'EC2APNESpotNodeDriver',
+    'sa-east-1': 'EC2SAEastSpotNodeDriver',
+    'ap-southeast-2': 'EC2APSESydneySpotNodeDriver',
+}
+
+
+def _region_to_provider(region):
+    prefixed = 'ec2-spot-%s' % region
+
+    return prefixed.replace('-', '_')
+
+
+def set_spot_drivers():
+    """
+    Convenience method that sets all drives in this file.
+
+    The provider name will be ec2_spot_AWS_REGION, with all hyphens
+    replaced by underscores in the AWS_REGION.
+    """
+    driver_module = 'ccglibcloud.ec2spot'
+    for region, driver_klass in REGION_TO_DRIVER.items():
+        set_driver(_region_to_provider(region), driver_module, driver_klass)
 
 
 class SpotRequestState(object):

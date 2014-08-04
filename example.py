@@ -2,8 +2,8 @@ import time
 import os
 from libcloud.compute.base import NodeImage
 from libcloud.compute.providers import get_driver
-from libcloud.compute.providers import set_driver
 from ccglibcloud.ec2spot import SpotRequestState
+from ccglibcloud.ec2spot import set_spot_drivers
 
 
 SIZE_ID = 't1.micro'
@@ -19,10 +19,8 @@ TERMINATED_TAGS = {'Name': 'terminated_{0}'.format(NODE_NAME)}
 def create_spot_request(accessid, secretkey):
 
     # load our third party driver
-    set_driver('ec2spot',
-               'ccglibcloud.ec2spot',
-               'EC2APSESydneySpotNodeDriver')
-    cls = get_driver('ec2spot')
+    set_spot_drivers()
+    cls = get_driver('ec2_spot_ap_southeast_2')
     driver = cls(accessid, secretkey)
 
     sizes = driver.list_sizes()

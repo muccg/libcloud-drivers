@@ -20,11 +20,9 @@ To install as a developer::
 To load the driver from your Python code::
 
     from libcloud.compute.providers import get_driver
-    from libcloud.compute.providers import set_driver
+    from ccglibcloud.ec2spot import set_spot_drivers
 
-    set_driver('ec2spot',
-               'ccglibcloud.ec2spot',
-               'EC2APSESydneySpotNodeDriver')
+    set_spot_drivers()
     cls = get_driver('ec2spot')
     driver = cls(ACCESS_ID, SECRET_KEY)
 
